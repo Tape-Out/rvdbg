@@ -1,0 +1,27 @@
+package Tap where
+
+-- IEEE 1149.1 的 TAP 状态转移。纯组合，每个状态一条方程：TMS 为 1 走 then 那一支。
+-- 写成方程而不是 BSV 的 case，是因为这张表要逐条对着标准的状态图核，一行一个状态最好核
+
+data Tap = Tlr | Rti
+         | SelDr | CapDr | ShDr | Ex1Dr | PauDr | Ex2Dr | UpdDr
+         | SelIr | CapIr | ShIr | Ex1Ir | PauIr | Ex2Ir | UpdIr
+  deriving (Bits, Eq, FShow)
+
+advance :: Tap -> Bool -> Tap
+advance Tlr   tms = if tms then Tlr   else Rti
+advance Rti   tms = if tms then SelDr else Rti
+advance SelDr tms = if tms then SelIr else CapDr
+advance CapDr tms = if tms then Ex1Dr else ShDr
+advance ShDr  tms = if tms then Ex1Dr else ShDr
+advance Ex1Dr tms = if tms then UpdDr else PauDr
+advance PauDr tms = if tms then Ex2Dr else PauDr
+advance Ex2Dr tms = if tms then UpdDr else ShDr
+advance UpdDr tms = if tms then SelDr else Rti
+advance SelIr tms = if tms then Tlr   else CapIr
+advance CapIr tms = if tms then Ex1Ir else ShIr
+advance ShIr  tms = if tms then Ex1Ir else ShIr
+advance Ex1Ir tms = if tms then UpdIr else PauIr
+advance PauIr tms = if tms then Ex2Ir else PauIr
+advance Ex2Ir tms = if tms then UpdIr else ShIr
+advance UpdIr tms = if tms then SelDr else Rti

@@ -1,0 +1,99 @@
+package DmCmd where
+
+-- 调试模块里不带状态的两块：抽象命令译码（Debug Spec 3.7.1）与 DMI 读表（3.14）。
+--
+-- 每种支持的命令一个构造子，认不出的组合只能落到 Unsupported（cmderr 2），
+-- 漏判一个保留位的后果因此也只是报「不支持」，不会被当成别的命令执行。
+-- 寄存器号不在这里分 GPR、CSR：核没有的寄存器由核答错（3.7.1.1 要求报 3），
+-- 核补一个 CSR 不必改调试模块。
+
+data Cmd = RegRead (Bit 16)
+         | RegWrite (Bit 16)
+         | MemRead Bool          -- aampostincrement
+         | MemWrite Bool
+         | Nop                   -- transfer 为 0
+         | Unsupported
+  deriving (Bits, Eq, FShow)
+
+-- aarpostincrement 不支持：没有 abstractauto，自增的 regno 读不出来；
+-- postexec 不支持：progbufsize 为 0。transfer 为 0 时 aarsize、regno 不必有效
+accessReg :: Bit 32 -> Cmd
+accessReg c =
+  if c[23:23] /= 0 || c[19:19] /= 0 || c[18:18] /= 0 then Unsupported
+  else if c[17:17] == 0 then Nop
+  else if c[22:20] /= 2 then Unsupported
+  else if c[16:16] == 1 then RegWrite c[15:0]
+  else RegRead c[15:0]
+
+accessMem :: Bit 32 -> Cmd
+accessMem c =
+  if c[23:23] /= 0 || c[22:20] /= 2 || c[18:17] /= 0 || c[13:0] /= 0 then Unsupported
+  else if c[16:16] == 1 then MemWrite (c[19:19] == 1)
+  else MemRead (c[19:19] == 1)
+
+decode :: Bit 32 -> Cmd
+decode c =
+  case c[31:24] of
+    0 -> accessReg c
+    2 -> accessMem c
+    _ -> Unsupported
+
+onMem :: Cmd -> Bool
+onMem (MemRead _)  = True
+onMem (MemWrite _) = True
+onMem _            = False
+
+isWrite :: Cmd -> Bool
+isWrite (RegWrite _) = True
+isWrite (MemWrite _) = True
+isWrite _            = False
+
+regOf :: Cmd -> Bit 16
+regOf (RegRead n)  = n
+regOf (RegWrite n) = n
+regOf _            = 0
+
+postinc :: Cmd -> Bool
+postinc (MemRead i)  = i
+postinc (MemWrite i) = i
+postinc _            = False
+
+struct Dm =
+    active    :: Bool
+    ndmreset  :: Bool
+    halted    :: Bool
+    resumeack :: Bool
+    havereset :: Bool
+    busy      :: Bool
+    cmderr    :: Bit 3
+    data0     :: Bit 32
+    data1     :: Bit 32
+
+-- 只有一颗核、hartsel 恒 0，dmstatus 里 all 与 any 两两相同
+both :: Bool -> Bit 2
+both b = if b then 3 else 0
+
+-- haltreq 是 WARZ，读 0
+dmcontrol :: Dm -> Bit 32
+dmcontrol s = (0 :: Bit 30) ++ pack (s.ndmreset) ++ pack (s.active)
+
+dmstatus :: Dm -> Bit 32
+dmstatus s =
+  (0 :: Bit 7) ++ pack (s.ndmreset) ++ (0 :: Bit 4)
+    ++ both (s.havereset) ++ both (s.resumeack) ++ (0 :: Bit 4)
+    ++ both (not s.halted) ++ both (s.halted)
+    ++ (1 :: Bit 1) ++ (0 :: Bit 3) ++ (3 :: Bit 4)
+
+abstractcs :: Dm -> Bit 32
+abstractcs s =
+  (0 :: Bit 19) ++ pack (s.busy) ++ (0 :: Bit 1) ++ s.cmderr ++ (0 :: Bit 4) ++ (2 :: Bit 4)
+
+readDm :: Dm -> Bit 7 -> Bit 32
+readDm s a =
+  case a of
+    0x04 -> s.data0
+    0x05 -> s.data1
+    0x10 -> dmcontrol s
+    0x11 -> dmstatus s
+    0x16 -> abstractcs s
+    _    -> 0

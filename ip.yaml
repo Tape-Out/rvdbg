@@ -1,0 +1,156 @@
+name: rvdbg
+version: 0.1.0
+spec: '0.1'
+kind: ip
+lang:
+- bsv
+- bh
+identity:
+  slug: rvdbg-tapeout-bsv
+  display_name: RISC-V external debug
+  summary: A Debug Module with a JTAG Debug Transport Module for one RISC-V 
+    hart.
+  category: debug
+  subcategories:
+  - riscv
+  ip_family: rvdbg
+  integration_profile: []
+  maturity: simulated
+contract:
+  version: 1
+  ctrl:
+    # 只发起、不被访问：DMI 留在 IP 里面，由 JTAG 进（Debug Spec 6.1）
+    shape: none
+    aw: 12
+    dw: 32
+params:
+  # IDCODE 的厂商号、零件号、修订号（Debug Spec 6.1.3），与 archinfo 同名同范围，装配时给同一个数
+  bank:
+    type: int
+    default: 0
+    range:
+    - 0
+    - 127
+  maker:
+    type: int
+    default: 0
+    range:
+    - 0
+    - 126
+  part:
+    type: int
+    default: 0
+    range:
+    - 0
+    - 65535
+  rev:
+    type: int
+    default: 0
+    range:
+    - 0
+    - 15
+test:
+  noarea:
+  - bank
+emit:
+- kind: bsv
+  package: Rvdbg
+  module: mkRvdbg
+  config_type: RvdbgCfg
+  interface: RvdbgIfc
+  pins:
+  # 给调试器的四根线；给核的口：停与恢复两根电平、停没停一根回线、寄存器与内存访问各一个 RegManager、ndmreset
+  - name: jtag
+    type: Jtag
+  - name: core
+    type: DmCore
+deps:
+  hwcore: ^0.1
+area:
+  # bank 只决定 IDCODE 里四位常数（续码个数模 16），综合成固定接法：两个格点只差 3.08 µm²（0.11%），在映射噪声里。
+  # 基线取两点里大的那个，保住「恒为高估」；bank 本身写进 test.noarea
+  base:
+    fixed: 2920.4
+  params:
+    maker:
+      points:
+        '0': 0.0
+        '126': -33.32
+    part:
+      points:
+        '0': 0.0
+        '65535': 43.4
+    rev:
+      points:
+        '0': 0.0
+        '15': -10.36
+  margin: 0.0
+  model: points-additive
+  error:
+    bound: 0.0
+    sign: over
+    note: first measured by ran recal --init at the range ends and the default 
+      of each parameter; the margin is the worst underestimate at 4 off-grid 
+      probes
+  measured:
+  - at:
+      bank: 0
+      maker: 0
+      part: 0
+      rev: 0
+    um2: 2920.4
+  - at:
+      bank: 127
+      maker: 0
+      part: 0
+      rev: 0
+    um2: 2917.32
+  - at:
+      bank: 0
+      maker: 126
+      part: 0
+      rev: 0
+    um2: 2887.08
+  - at:
+      bank: 0
+      maker: 0
+      part: 65535
+      rev: 0
+    um2: 2963.8
+  - at:
+      bank: 0
+      maker: 0
+      part: 0
+      rev: 15
+    um2: 2910.04
+  - at:
+      bank: 63
+      maker: 0
+      part: 0
+      rev: 0
+    um2: 2917.32
+  - at:
+      bank: 0
+      maker: 63
+      part: 0
+      rev: 0
+    um2: 2873.64
+  - at:
+      bank: 0
+      maker: 0
+      part: 32767
+      rev: 0
+    um2: 2906.12
+  - at:
+      bank: 0
+      maker: 0
+      part: 0
+      rev: 7
+    um2: 2898.28
+  corner:
+    tool: ecc
+    pdk: ics55
+    freq_mhz: 100
+    measured: '2026-09-16'
+    toolchain: bsc 2026.01 · yosys 0.68+195 · ecc 0.1.0a11
+    gen_digest: sha256:975f711ee4b4359e

@@ -1,0 +1,13 @@
+rvdbg
+
+This IP is written against the RISC-V Debug Specification, Version 1.0,
+ratified 2025-02-21, released under the Creative Commons Attribution 4.0
+International License:
+https://github.com/riscv/riscv-debug-spec
+
+The following work was consulted as a behavioural reference. No source
+code was copied from it.
+
+  pulp-platform/riscv-dbg, commit 643607e1
+  Solderpad Hardware License, Version 0.51
+  https://github.com/pulp-platform/riscv-dbg
