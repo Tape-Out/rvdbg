@@ -263,7 +263,7 @@ verdict = ("over JTAG the DTM selects IDCODE, BYPASS, dtmcs and dmi as Debug Spe
 
 TEMPLATE = r'''package Rvdbg@L@Tb;
 
-// 由 tb/mkrvdbgtb.py 生成，勿手改
+// 由 htest/mkrvdbgtb.py 生成，勿手改
 
 import Vector::*;
 import RegIf::*;
